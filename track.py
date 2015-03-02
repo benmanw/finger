@@ -1,6 +1,10 @@
-import SimpleCV, math, numpy
-from SimpleCV import Color, Camera, Image
+import SimpleCV
+import numpy as np
+
+from SimpleCV import Color, Camera, Display
+from itertools import chain
 from time import time
+from math import floor
 
 # Settings
 blob_min, blob_max = 1000, 100000
@@ -14,7 +18,7 @@ def blob_centroids(cam, display):
 	start = time()
 	while time() - start < seconds:
 		img = getFlippedImage(cam)
-		countdown = '%s' % (seconds - math.floor(time() - start))
+		countdown = '%s' % (seconds - floor(time() - start))
 		fontsize = 100
 		img.drawText(text=countdown, x=img.width/2-fontsize/2, y=100, color=(0, 255, 0), fontsize=fontsize)
 		img.drawRectangle(img.width/2-50, img.height/2-50, 100, 100, (0, 255, 0), 3)
@@ -44,7 +48,7 @@ def blob_centroids(cam, display):
 
 			yield centroids
 
-def motion_centroids(cam, display, color):
+def motion_centroids(cam, display):
 	second = getFlippedImage(cam)
 	while display.isNotDone():
 		first = getFlippedImage(cam)
@@ -57,27 +61,21 @@ def motion_centroids(cam, display, color):
 			big_blobs = [blob for blob in blobs if blob_min < blob.area() < blob_max]
 			centroids = [blob.centroid() for blob in big_blobs]
 			
-			yield centroid
+			yield centroids
 
 def gradient_norms(cam, display):
-	while display.isNotDone():
-		img = getFlippedImage(cam)
-		yield img.gaussianBlur().morphGradient().invert().binarize(thresh=240)
+	img = getFlippedImage(cam)
+	return img.gaussianBlur().morphGradient().invert().binarize(thresh=240).erode(iterations=1)
 
-# Faces are not hands
-def face_detection(cam, display):
-	while display.isNotDone():
-		img = getFlippedImage(cam)
-		faces = img.findHaarFeatures('haarcascade_frontalface_alt_tree')
+average_tuples = lambda tuples: (np.average(zip(*tuples)[0]), np.average(zip(*tuples)[1]))
 
 if __name__ == '__main__':
-	cam, display = SimpleCV.Camera(), SimpleCV.Display()
-
-	face_detection(cam, display)
+	args = (Camera(), Display())
 
 	# Draw blob centroids
-	for blob_centroids in blob_centroids(cam, display):
-		img = getFlippedImage(cam)
-		for centroid in blob_centroids:
-			img.drawCircle(centroid, 10, color=Color.RED, thickness=-1)
-	 	img.show()
+	for centroids in chain(blob_centroids(*args), motion_centroids(*args)):
+		img = gradient_norms(*args)
+		# for c in centroids:
+		c = average_tuples(centroids)
+		img.drawCircle(c, 10, color=Color.RED, thickness=-1)
+		img.show()
