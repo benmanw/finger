@@ -1,5 +1,5 @@
 import SimpleCV, math, numpy
-from SimpleCV import Color
+from SimpleCV import Color, Camera, Image
 from time import time
 
 # Settings
@@ -7,7 +7,7 @@ blob_min, blob_max = 1000, 100000
 
 getFlippedImage = lambda cam: cam.getImage().flipHorizontal()
 
-def blob_centroids(cam, display, color):
+def blob_centroids(cam, display):
 
 	# Calibration
 	seconds = 5
@@ -40,10 +40,9 @@ def blob_centroids(cam, display, color):
 		blobs = blobbed_image.findBlobs()
 		if blobs:
 			big_blobs = [blob for blob in blobs if blob_min < blob.area() < blob_max]
-			for blob in big_blobs:
-				blobbed_image.drawCircle(blob.centroid(), 10, color=color, thickness=-1)
+			centroids = [blob.centroid() for blob in big_blobs]
 
-		yield blobbed_image
+			yield centroids
 
 def motion_centroids(cam, display, color):
 	second = getFlippedImage(cam)
@@ -56,21 +55,29 @@ def motion_centroids(cam, display, color):
 		blobs = diff.findBlobs()
 		if blobs:
 			big_blobs = [blob for blob in blobs if blob_min < blob.area() < blob_max]
-			for blob in big_blobs:
-				diff.drawCircle(blob.centroid(), 10, color=color, thickness=-1)
-
-		yield diff
+			centroids = [blob.centroid() for blob in big_blobs]
+			
+			yield centroid
 
 def gradient_norms(cam, display):
 	while display.isNotDone():
 		img = getFlippedImage(cam)
 		yield img.gaussianBlur().morphGradient().invert().binarize(thresh=240)
 
-
-
+# Faces are not hands
+def face_detection(cam, display):
+	while display.isNotDone():
+		img = getFlippedImage(cam)
+		faces = img.findHaarFeatures('haarcascade_frontalface_alt_tree')
 
 if __name__ == '__main__':
 	cam, display = SimpleCV.Camera(), SimpleCV.Display()
 
-	for frame in blob_centroids(cam, display, Color.RED):
-	 	frame.show()
+	face_detection(cam, display)
+
+	# Draw blob centroids
+	for blob_centroids in blob_centroids(cam, display):
+		img = getFlippedImage(cam)
+		for centroid in blob_centroids:
+			img.drawCircle(centroid, 10, color=Color.RED, thickness=-1)
+	 	img.show()
