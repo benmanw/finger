@@ -1,5 +1,4 @@
 import SimpleCV
-import numpy as np
 
 from SimpleCV import Color, Camera, Display
 from itertools import chain
@@ -13,15 +12,18 @@ getFlippedImage = lambda cam: cam.getImage().flipHorizontal()
 
 def blob_centroids(cam, display):
 
-	# Calibration
+	# UI Settings
 	seconds = 5
+	fontsize = 100
+	boxsize = 100
+
+	# Calibration
 	start = time()
 	while time() - start < seconds:
 		img = getFlippedImage(cam)
 		countdown = '%s' % (seconds - floor(time() - start))
-		fontsize = 100
-		img.drawText(text=countdown, x=img.width/2-fontsize/2, y=100, color=(0, 255, 0), fontsize=fontsize)
-		img.drawRectangle(img.width/2-50, img.height/2-50, 100, 100, (0, 255, 0), 3)
+		img.drawText(text=countdown, x=img.width/2-fontsize/2, y=boxsize, color=(0, 255, 0), fontsize=fontsize)
+		img.drawRectangle(img.width/2-boxsize/2, img.height/2-boxsize/2, boxsize, boxsize, (0, 255, 0), 3)
 		img.show()
 
 	img = cam.getImage().flipHorizontal()
@@ -63,19 +65,28 @@ def motion_centroids(cam, display):
 			
 			yield centroids
 
+def corners(cam, display):
+	while display.isNotDone():
+		yield gradient_norms(cam, display).findCorners()
+
 def gradient_norms(cam, display):
 	img = getFlippedImage(cam)
 	return img.gaussianBlur().morphGradient().invert().binarize(thresh=240).erode(iterations=1)
-
-average_tuples = lambda tuples: (np.average(zip(*tuples)[0]), np.average(zip(*tuples)[1]))
 
 if __name__ == '__main__':
 	args = (Camera(), Display())
 
 	# Draw blob centroids
-	for centroids in chain(blob_centroids(*args), motion_centroids(*args)):
+	# for centroids in chain(blob_centroids(*args), motion_centroids(*args)):
+	# 	img = gradient_norms(*args)
+	# 	for c in centroids:
+	# 		img.drawCircle(c, 10, color=Color.RED, thickness=-1)
+	# 	img.show()
+
+	for corners in corners(*args):
 		img = gradient_norms(*args)
-		# for c in centroids:
-		c = average_tuples(centroids)
-		img.drawCircle(c, 10, color=Color.RED, thickness=-1)
-		img.show()
+		for c in corners:
+			img.drawCircle(c, 10, color=Color.RED, thickness=-1)
+	 	img.show()
+
+
